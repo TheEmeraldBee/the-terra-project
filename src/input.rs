@@ -1,4 +1,4 @@
-use glam::Vec2;
+use glam::*;
 use wgpu::naga::FastHashSet;
 use winit::{
     event::{ElementState, MouseScrollDelta, RawKeyEvent},
@@ -120,5 +120,20 @@ impl Input {
 
     pub fn scroll(&self) -> Vec2 {
         self.scroll_delta
+    }
+
+    pub fn key_vector(&self, up: KeyCode, left: KeyCode, down: KeyCode, right: KeyCode) -> Vec2 {
+        vec2(self.key_value(right, left), self.key_value(up, down))
+    }
+
+    pub fn key_value(&self, pos: KeyCode, neg: KeyCode) -> f32 {
+        let mut res = 0.0;
+        if self.pressed(pos) {
+            res += 1.0;
+        }
+        if self.pressed(neg) {
+            res -= 1.0;
+        }
+        res
     }
 }

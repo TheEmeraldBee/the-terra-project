@@ -1,14 +1,10 @@
 use std::f32::consts::PI;
 
-use glam::Vec3;
-use render::{camera::Camera, vertex::Vertex};
-use scene::{Scene, SceneEvent};
-use wgpu::{util::DeviceExt, BindGroup, Buffer, RenderPipeline};
-use window::Frame;
-use winit::{event::WindowEvent, event_loop::EventLoop, keyboard::KeyCode};
+use prelude::*;
+use winit::event_loop::EventLoop;
 
-pub mod window;
-use crate::window::App;
+pub mod app;
+use crate::app::App;
 
 pub mod render;
 
@@ -19,6 +15,8 @@ pub mod input;
 pub mod time;
 
 pub mod math;
+
+pub mod prelude;
 
 fn main() -> anyhow::Result<()> {
     // Initialize the logger.
@@ -72,11 +70,13 @@ pub struct TestScene {
 }
 
 impl TestScene {
-    fn load(window: &winit::window::Window, renderer: &render::Renderer) -> Box<dyn Scene> {
+    fn load(window: &winit::window::Window, renderer: &Renderer) -> Box<dyn Scene> {
         let camera = Camera {
             pos: Vec3::new(0.0, 1.0, -5.0),
             ..Default::default()
         };
+
+        // Replace following with take_cursor(window);
 
         window
             .set_cursor_grab(winit::window::CursorGrabMode::Locked)
@@ -244,18 +244,12 @@ impl Scene for TestScene {
         let r = self.camera.right();
         let u = Vec3::Y;
 
-        if input.pressed(KeyCode::KeyW) {
-            self.camera.pos += f * 5.0 * delta;
-        }
-        if input.pressed(KeyCode::KeyS) {
-            self.camera.pos -= f * 5.0 * delta;
-        }
-        if input.pressed(KeyCode::KeyD) {
-            self.camera.pos += r * 5.0 * delta;
-        }
-        if input.pressed(KeyCode::KeyA) {
-            self.camera.pos -= r * 5.0 * delta;
-        }
+        let horizontal =
+            input.key_vector(KeyCode::KeyW, KeyCode::KeyA, KeyCode::KeyS, KeyCode::KeyD);
+
+        self.camera.pos += f * horizontal.y * 5.0 * delta;
+        self.camera.pos += r * horizontal.x * 5.0 * delta;
+
         if input.pressed(KeyCode::Space) {
             self.camera.pos += u * 5.0 * delta;
         }

@@ -1,68 +1,11 @@
-use std::sync::Arc;
+use crate::prelude::*;
 use winit::{
     application::ApplicationHandler,
-    event::{DeviceEvent, RawKeyEvent, WindowEvent},
-    event_loop::ActiveEventLoop,
-    window::{Window, WindowId},
+    event::{DeviceEvent, RawKeyEvent},
+    window::WindowId,
 };
 
-use crate::{
-    input::Input,
-    render::Renderer,
-    scene::{Scene, SceneEvent, SceneFn},
-    time::Time,
-};
-
-pub enum SceneState {
-    Unloaded(SceneFn),
-    Loaded(Box<dyn Scene>),
-}
-
-impl SceneState {
-    pub fn loaded(&mut self) -> &mut Box<dyn Scene> {
-        match self {
-            Self::Loaded(t) => t,
-            _ => panic!("Scene is not loaded. This is a bug, please report!"),
-        }
-    }
-}
-
-pub struct App<'a> {
-    renderer: Option<Renderer<'a>>,
-    window: Option<Arc<Window>>,
-    scene: SceneState,
-    input: Input,
-    time: Time,
-}
-
-pub struct Frame<'a, 'r> {
-    pub renderer: &'a Renderer<'r>,
-    pub window: &'a Window,
-    pub input: &'a Input,
-    pub time: &'a Time,
-}
-
-impl<'a> App<'a> {
-    pub fn new(scene: SceneFn) -> Self {
-        Self {
-            renderer: None,
-            window: None,
-            scene: SceneState::Unloaded(scene),
-            input: Input::default(),
-            time: Time::default(),
-        }
-    }
-
-    pub fn new_preload(scene: Box<dyn Scene>) -> Self {
-        Self {
-            renderer: None,
-            window: None,
-            scene: SceneState::Loaded(scene),
-            input: Input::default(),
-            time: Time::default(),
-        }
-    }
-}
+use std::sync::Arc;
 
 impl<'a> ApplicationHandler for App<'a> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -76,7 +19,7 @@ impl<'a> ApplicationHandler for App<'a> {
         };
         self.window = Some(window.clone());
 
-        self.renderer = match Renderer::new(self.window.clone().unwrap(), (1920, 1080)) {
+        self.renderer = match Renderer::build(self.window.clone().unwrap(), (1920, 1080)) {
             Ok(r) => Some(r),
             Err(e) => {
                 log::error!("Creating renderer failed with error: {e}");

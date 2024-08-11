@@ -1,6 +1,4 @@
-use winit::{event::WindowEvent, window::Window};
-
-use crate::{render::Renderer, window::Frame};
+use crate::prelude::*;
 
 pub type SceneFn = &'static dyn Fn(&Window, &Renderer) -> Box<dyn Scene>;
 
@@ -15,4 +13,22 @@ pub enum SceneEvent {
     SetScene(Box<dyn Scene>),
     #[default]
     Empty,
+}
+
+pub enum SceneState {
+    Unloaded(SceneFn),
+    Loaded(Box<dyn Scene>),
+}
+
+impl SceneState {
+    pub fn loaded(&mut self) -> &mut Box<dyn Scene> {
+        match self {
+            Self::Loaded(t) => t,
+            _ => panic!("Scene is not loaded. This is a bug, please report!"),
+        }
+    }
+}
+
+pub mod prelude {
+    pub use super::{Scene, SceneEvent, SceneState};
 }
