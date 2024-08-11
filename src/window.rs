@@ -1,19 +1,67 @@
 use std::sync::Arc;
-use wgpu::{include_wgsl, RenderPipeline};
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{DeviceEvent, RawKeyEvent, WindowEvent},
     event_loop::ActiveEventLoop,
     window::{Window, WindowId},
 };
 
-use crate::render::Renderer;
+use crate::{
+    input::Input,
+    render::Renderer,
+    scene::{Scene, SceneEvent, SceneFn},
+    time::Time,
+};
 
-#[derive(Default)]
+pub enum SceneState {
+    Unloaded(SceneFn),
+    Loaded(Box<dyn Scene>),
+}
+
+impl SceneState {
+    pub fn loaded(&mut self) -> &mut Box<dyn Scene> {
+        match self {
+            Self::Loaded(t) => t,
+            _ => panic!("Scene is not loaded. This is a bug, please report!"),
+        }
+    }
+}
+
 pub struct App<'a> {
     renderer: Option<Renderer<'a>>,
     window: Option<Arc<Window>>,
-    pipelines: Vec<RenderPipeline>,
+    scene: SceneState,
+    input: Input,
+    time: Time,
+}
+
+pub struct Frame<'a, 'r> {
+    pub renderer: &'a Renderer<'r>,
+    pub window: &'a Window,
+    pub input: &'a Input,
+    pub time: &'a Time,
+}
+
+impl<'a> App<'a> {
+    pub fn new(scene: SceneFn) -> Self {
+        Self {
+            renderer: None,
+            window: None,
+            scene: SceneState::Unloaded(scene),
+            input: Input::default(),
+            time: Time::default(),
+        }
+    }
+
+    pub fn new_preload(scene: Box<dyn Scene>) -> Self {
+        Self {
+            renderer: None,
+            window: None,
+            scene: SceneState::Loaded(scene),
+            input: Input::default(),
+            time: Time::default(),
+        }
+    }
 }
 
 impl<'a> ApplicationHandler for App<'a> {
@@ -37,12 +85,12 @@ impl<'a> ApplicationHandler for App<'a> {
             }
         };
 
-        self.pipelines.push(
-            self.renderer
-                .as_ref()
-                .unwrap()
-                .render_pipeline_descriptor(include_wgsl!("../assets/shaders/basic.wgsl")),
-        )
+        match self.scene {
+            SceneState::Unloaded(f) => {
+                self.scene = SceneState::Loaded(f(&window, self.renderer.as_ref().unwrap()))
+            }
+            SceneState::Loaded(_) => {}
+        }
     }
 
     fn window_event(
@@ -66,13 +114,24 @@ impl<'a> ApplicationHandler for App<'a> {
         let renderer = match self.renderer.as_mut() {
             Some(t) => t,
             None => {
-                log::warn!(
+                log::error!(
                     r#"Event Loop Ran Without Renderer, this is fatal, and should be reported as a bug."#
                 );
                 event_loop.exit();
                 return;
             }
         };
+
+        let scene = match self.scene {
+            SceneState::Unloaded(f) => {
+                self.scene = SceneState::Loaded(f(window, renderer));
+                self.scene.loaded()
+            }
+            _ => self.scene.loaded(),
+        };
+
+        // Send event to scene in case it wants custom processing.
+        scene.event(&event);
 
         match event {
             WindowEvent::Resized(size) => {
@@ -86,26 +145,45 @@ impl<'a> ApplicationHandler for App<'a> {
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
-                renderer.frame(|view, encoder| {
-                    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: None,
-                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
-                                store: wgpu::StoreOp::Store,
-                            },
-                        })],
-                        depth_stencil_attachment: None,
-                        timestamp_writes: None,
-                        occlusion_query_set: None,
-                    });
-                    rpass.set_pipeline(&self.pipelines[0]);
-                    rpass.draw(0..3, 0..1);
-                });
+                self.time.update();
+
+                let frame = Frame {
+                    renderer,
+                    window,
+                    input: &self.input,
+                    time: &self.time,
+                };
+                match scene.update(frame) {
+                    SceneEvent::ChangeScene(f) => self.scene = SceneState::Unloaded(f),
+                    SceneEvent::SetScene(s) => self.scene = SceneState::Loaded(s),
+                    SceneEvent::Empty => {}
+                };
+                self.input.update();
                 window.request_redraw();
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                self.input.mouse_positioned(position.into())
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                self.input.event(RawKeyEvent {
+                    physical_key: event.physical_key,
+                    state: event.state,
+                });
+            }
+            _ => {}
+        }
+    }
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        match event {
+            DeviceEvent::Key(k) => self.input.event(k),
+            DeviceEvent::MouseMotion { delta } => self.input.mouse_moved(delta),
+            DeviceEvent::Button { button, state } => self.input.mouse_event(button, state),
+            DeviceEvent::MouseWheel { delta } => self.input.scroll_event(delta),
             _ => {}
         }
     }

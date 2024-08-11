@@ -1,11 +1,12 @@
 use futures::executor::block_on;
 use std::sync::Arc;
 use thiserror::Error;
-use wgpu::{
-    CommandEncoder, CreateSurfaceError, Instance, Queue, RenderPipeline, RequestDeviceError,
-    ShaderModuleDescriptor, ShaderSource, TextureView,
-};
+use wgpu::{CommandEncoder, CreateSurfaceError, Instance, RequestDeviceError, TextureView};
 use winit::window::Window;
+
+pub mod camera;
+
+pub mod vertex;
 
 #[derive(Error, Debug)]
 pub enum RendererBuildError {
@@ -23,11 +24,11 @@ pub enum RendererBuildError {
 }
 
 pub struct Renderer<'a> {
-    surface: wgpu::Surface<'a>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    adapter: wgpu::Adapter,
+    pub surface: wgpu::Surface<'a>,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub config: wgpu::SurfaceConfiguration,
+    pub adapter: wgpu::Adapter,
 }
 
 impl<'a> Renderer<'a> {
@@ -76,56 +77,6 @@ impl<'a> Renderer<'a> {
             config,
             adapter,
         })
-    }
-
-    pub fn queue(&self) -> &Queue {
-        &self.queue
-    }
-
-    pub fn render_pipeline(&self, source: &str) -> RenderPipeline {
-        let descriptor = wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source)),
-        };
-        self.render_pipeline_descriptor(descriptor)
-    }
-
-    pub fn render_pipeline_descriptor(&self, source: ShaderModuleDescriptor) -> RenderPipeline {
-        let shader = self.device.create_shader_module(source);
-
-        let pipeline_layout = self
-            .device
-            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: None,
-                bind_group_layouts: &[],
-                push_constant_ranges: &[],
-            });
-
-        let swapchain_capabilities = self.surface.get_capabilities(&self.adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
-
-        self.device
-            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: None,
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: &[],
-                    compilation_options: Default::default(),
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: "fs_main",
-                    compilation_options: Default::default(),
-                    targets: &[Some(swapchain_format.into())],
-                }),
-                primitive: wgpu::PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
-                multiview: None,
-                cache: None,
-            })
     }
 
     pub fn resize(&mut self, new_size: (u32, u32)) {
