@@ -73,10 +73,7 @@ impl<'a> ApplicationHandler for App<'a> {
             _ => self.scene.loaded(),
         };
 
-        // Send event to scene in case it wants custom processing.
-        scene.event(&event);
-
-        match event {
+        match &event {
             WindowEvent::Resized(size) => {
                 // Tell the renderer to resize
                 renderer.resize((size.width, size.height));
@@ -96,6 +93,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     input: &self.input,
                     time: &self.time,
                 };
+
                 match scene.update(frame) {
                     SceneEvent::ChangeScene(f) => self.scene = SceneState::Unloaded(f),
                     SceneEvent::SetScene(s) => self.scene = SceneState::Loaded(s),
@@ -104,9 +102,9 @@ impl<'a> ApplicationHandler for App<'a> {
                 self.input.update();
                 window.request_redraw();
             }
-            WindowEvent::CursorMoved { position, .. } => {
-                self.input.mouse_positioned(position.into())
-            }
+            WindowEvent::CursorMoved { position, .. } => self
+                .input
+                .mouse_positioned((position.x as f32, position.y as f32)),
             WindowEvent::KeyboardInput { event, .. } => {
                 self.input.event(RawKeyEvent {
                     physical_key: event.physical_key,
@@ -114,6 +112,12 @@ impl<'a> ApplicationHandler for App<'a> {
                 });
             }
             _ => {}
+        }
+
+        // Send event to scene in case it wants custom processing.
+        match &mut self.scene {
+            SceneState::Unloaded(_) => {}
+            SceneState::Loaded(l) => l.event(&event, renderer, window),
         }
     }
     fn device_event(

@@ -4,7 +4,7 @@ pub type SceneFn = &'static dyn Fn(&Window, &Renderer) -> Box<dyn Scene>;
 
 pub trait Scene {
     fn update(&mut self, frame: Frame) -> SceneEvent;
-    fn event(&mut self, _event: &WindowEvent) {}
+    fn event(&mut self, _event: &WindowEvent, _renderer: &Renderer, _window: &Window) {}
 }
 
 #[derive(Default)]

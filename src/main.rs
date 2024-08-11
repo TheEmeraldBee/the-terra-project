@@ -1,5 +1,7 @@
 use std::f32::consts::PI;
 
+use app::window_extension::WindowExtensions;
+use mesh::Mesh;
 use prelude::*;
 use winit::event_loop::EventLoop;
 
@@ -14,9 +16,9 @@ pub mod input;
 
 pub mod time;
 
-pub mod math;
-
 pub mod prelude;
+
+pub mod mesh;
 
 fn main() -> anyhow::Result<()> {
     // Initialize the logger.
@@ -33,22 +35,22 @@ const VERTICES: &[Vertex] = &[
     Vertex {
         // 0
         position: [0.0, 0.0, 0.0],
-        color: [1.0, 1.0, 1.0],
+        color: [1.0, 1.0, 1.0, 1.0],
     },
     Vertex {
         // 1
         position: [1.0, 0.0, 0.0],
-        color: [1.0, 1.0, 1.0],
+        color: [1.0, 1.0, 1.0, 1.0],
     },
     Vertex {
         // 2
         position: [1.0, 1.0, 0.0],
-        color: [1.0, 1.0, 1.0],
+        color: [1.0, 1.0, 1.0, 1.0],
     },
     Vertex {
         // 3
         position: [0.0, 1.0, 0.0],
-        color: [1.0, 1.0, 1.0],
+        color: [1.0, 1.0, 1.0, 1.0],
     },
 ];
 
@@ -57,10 +59,9 @@ const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
 pub struct TestScene {
     pipeline: RenderPipeline,
 
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
+    mesh: Mesh,
 
-    num_indices: u32,
+    depth_texture: Texture,
 
     camera: Camera,
     camera_buffer: Buffer,
@@ -76,65 +77,10 @@ impl TestScene {
             ..Default::default()
         };
 
-        // Replace following with take_cursor(window);
+        window.lock_cursor(true);
 
-        window
-            .set_cursor_grab(winit::window::CursorGrabMode::Locked)
-            .unwrap();
-        window.set_cursor_visible(false);
-
-        // Generate Buffers
-        let vertex_buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-
-        let index_buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-        let num_indices = INDICES.len() as u32;
-
-        let camera_buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: bytemuck::cast_slice(&[camera.uniform()]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-        let camera_bind_group_layout =
-            renderer
-                .device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
-                    label: Some("camera_bind_group_layout"),
-                });
-
-        let camera_bind_group = renderer
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &camera_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_buffer.as_entire_binding(),
-                }],
-                label: Some("camera_bind_group"),
-            });
+        let (camera_buffer, camera_bind_group_layout, camera_bind_group) =
+            camera.bind_group(renderer);
 
         let shader = renderer
             .device
@@ -145,47 +91,22 @@ impl TestScene {
                 ),
             });
 
-        let pipeline_layout =
-            renderer
-                .device
-                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[&camera_bind_group_layout],
-                    push_constant_ranges: &[],
-                });
+        let pipeline = Mesh::pipeline(
+            PrimitiveTopology::TriangleList,
+            renderer,
+            shader,
+            &[&camera_bind_group_layout],
+        );
+        let mesh = Mesh::new(renderer, VERTICES, INDICES);
 
-        let swapchain_capabilities = renderer.surface.get_capabilities(&renderer.adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
-
-        let pipeline = renderer
-            .device
-            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: None,
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: &[Vertex::desc()],
-                    compilation_options: Default::default(),
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: "fs_main",
-                    compilation_options: Default::default(),
-                    targets: &[Some(swapchain_format.into())],
-                }),
-                primitive: wgpu::PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
-                multiview: None,
-                cache: None,
-            });
+        let depth_texture =
+            Texture::create_depth_texture(&renderer.device, &renderer.config, "depth_texture");
 
         Box::new(Self {
             pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices,
+            mesh,
+
+            depth_texture,
 
             camera,
             camera_buffer,
@@ -210,26 +131,13 @@ impl Scene for TestScene {
             .queue
             .write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[proj]));
 
+        // Toggle Cursor Lock On ESC Key Pressed
         if frame.input.just_pressed(winit::keyboard::KeyCode::Escape) {
             self.bound = !self.bound;
-            match self.bound {
-                true => {
-                    frame
-                        .window
-                        .set_cursor_grab(winit::window::CursorGrabMode::Locked)
-                        .unwrap();
-                    frame.window.set_cursor_visible(false);
-                }
-                false => {
-                    frame
-                        .window
-                        .set_cursor_grab(winit::window::CursorGrabMode::None)
-                        .unwrap();
-                    frame.window.set_cursor_visible(true);
-                }
-            }
+            frame.window.lock_cursor(self.bound);
         }
 
+        // If the mouse is locked, rotate the camera.
         if self.bound {
             let mouse_delta = input.mouse_delta();
 
@@ -240,22 +148,18 @@ impl Scene for TestScene {
             self.camera.yaw = self.camera.yaw.rem_euclid(2.0 * PI);
         }
 
+        // Move camera based on input.
         let f = self.camera.forward();
         let r = self.camera.right();
         let u = Vec3::Y;
 
         let horizontal =
             input.key_vector(KeyCode::KeyW, KeyCode::KeyA, KeyCode::KeyS, KeyCode::KeyD);
+        let vert = input.key_value(KeyCode::Space, KeyCode::ShiftLeft);
 
         self.camera.pos += f * horizontal.y * 5.0 * delta;
         self.camera.pos += r * horizontal.x * 5.0 * delta;
-
-        if input.pressed(KeyCode::Space) {
-            self.camera.pos += u * 5.0 * delta;
-        }
-        if input.pressed(KeyCode::ShiftLeft) {
-            self.camera.pos -= u * 5.0 * delta;
-        }
+        self.camera.pos += u * vert * 5.0 * delta;
 
         renderer.frame(|view, encoder| {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -268,7 +172,14 @@ impl Scene for TestScene {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
@@ -279,22 +190,22 @@ impl Scene for TestScene {
             // Set the camera's bind group
             pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
-            // Set the vertex buffer.
-            pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-
-            // Set the index buffer.
-            pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
-
-            // Draw the vertices.
-            pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            self.mesh.render(&mut pass);
         });
         SceneEvent::Empty
     }
 
     #[allow(clippy::single_match)]
-    fn event(&mut self, event: &WindowEvent) {
+    fn event(&mut self, event: &WindowEvent, renderer: &Renderer, _window: &Window) {
         match event {
-            WindowEvent::Resized(s) => self.camera.resize(s),
+            WindowEvent::Resized(s) => {
+                self.camera.resize(s);
+                self.depth_texture = Texture::create_depth_texture(
+                    &renderer.device,
+                    &renderer.config,
+                    "depth_texture",
+                );
+            }
             _ => {}
         }
     }

@@ -1,11 +1,11 @@
 use crate::{prelude::*, scene::SceneFn};
 use std::sync::Arc;
 
-pub mod app_handler;
+pub mod handler;
 
 pub mod frame;
 
-pub mod util;
+pub mod window_extension;
 
 pub mod prelude {
     pub use super::frame::Frame;

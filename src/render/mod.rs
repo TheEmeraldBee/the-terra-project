@@ -8,10 +8,17 @@ pub mod builder;
 
 pub mod error;
 
+pub mod bind_group;
+
+pub mod projection;
+
+pub mod texture;
+
 pub mod prelude {
     pub use super::builder::NewRenderer;
     pub use super::camera::Camera;
     pub use super::error::RendererBuildError;
+    pub use super::texture::Texture;
     pub use super::vertex::Vertex;
     pub use super::Renderer;
 }

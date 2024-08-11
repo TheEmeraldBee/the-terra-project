@@ -1,17 +1,15 @@
 use glam::*;
+use wgpu::{util::DeviceExt, BindGroup, BindGroupLayout, Buffer};
 use winit::dpi::PhysicalSize;
+
+use super::{projection::Projection, Renderer};
 
 pub struct Camera {
     pub pos: Vec3,
     pub yaw: f32,
     pub pitch: f32,
 
-    pub fovy: f32,
-
-    pub aspect: f32,
-
-    pub near: f32,
-    pub far: f32,
+    pub projection: Projection,
 
     pub uniform: CameraUniform,
 }
@@ -23,12 +21,7 @@ impl Default for Camera {
             yaw: 0.0,
             pitch: 0.0,
 
-            fovy: 90.0,
-
-            aspect: const { 1920.0 / 1080.0 },
-
-            near: 0.01,
-            far: 5000.0,
+            projection: Projection::default(),
 
             uniform: CameraUniform::default(),
         };
@@ -48,17 +41,15 @@ impl Camera {
             Vec3::Y,
         );
 
-        let proj = Mat4::perspective_rh(self.fovy, self.aspect, self.near, self.far);
+        self.uniform.update(self.projection.proj * view);
+    }
 
-        self.uniform.update(proj * view);
+    pub fn resize(&mut self, size: &PhysicalSize<u32>) {
+        self.projection.resize(size)
     }
 
     pub fn uniform(&self) -> CameraUniform {
         self.uniform
-    }
-
-    pub fn resize(&mut self, size: &PhysicalSize<u32>) {
-        self.aspect = size.width as f32 / size.height as f32;
     }
 
     pub fn forward(&self) -> Vec3 {
@@ -69,6 +60,45 @@ impl Camera {
     pub fn right(&self) -> Vec3 {
         let (yaw_sin, yaw_cos) = self.yaw.sin_cos();
         Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize()
+    }
+
+    pub fn bind_group(&self, renderer: &Renderer) -> (Buffer, BindGroupLayout, BindGroup) {
+        let buffer = renderer
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Camera Buffer"),
+                contents: bytemuck::cast_slice(&[self.uniform()]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+        let bind_group_layout =
+            renderer
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                    label: Some("camera_bind_group_layout"),
+                });
+
+        let bind_group = renderer
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+                label: Some("camera_bind_group"),
+            });
+
+        (buffer, bind_group_layout, bind_group)
     }
 }
 
