@@ -4,7 +4,33 @@ use wgpu::{
     RenderPipeline, ShaderModule,
 };
 
-use crate::prelude::{Renderer, Texture, Vertex};
+use crate::prelude::{vertex, Renderer, Texture, Vertex};
+
+#[derive(Default)]
+pub struct MeshBuilder {
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
+    face_count: u32,
+}
+
+impl MeshBuilder {
+    pub fn add(&mut self, coord: [f32; 3], face: usize) {
+        // Push all vertice faces
+        for i in &VERTICES[face] {
+            self.vertices.push(*i + coord)
+        }
+
+        for i in &INDICES {
+            self.indices.push(*i + (4 * self.face_count))
+        }
+
+        self.face_count += 1;
+    }
+
+    pub fn build(self, renderer: &Renderer) -> Mesh {
+        Mesh::new(renderer, &self.vertices, &self.indices)
+    }
+}
 
 pub struct Mesh {
     vertex_buffer: Buffer,
@@ -13,7 +39,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(renderer: &Renderer, vertices: &[Vertex], indices: &[u16]) -> Self {
+    pub fn new(renderer: &Renderer, vertices: &[Vertex], indices: &[u32]) -> Self {
         // Generate Buffers
         let vertex_buffer = renderer.device.create_buffer_init(&BufferInitDescriptor {
             label: Some("vertex buffer"),
@@ -92,9 +118,55 @@ impl Mesh {
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
         // Set the index buffer.
-        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
+        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
 
         // Draw the vertices.
         pass.draw_indexed(0..self.num_indices, 0, 0..1);
     }
 }
+
+const INDICES: [u32; 6] = [0, 1, 2, 2, 1, 3];
+const VERTICES: [[Vertex; 4]; 6] = [
+    [
+        // Top
+        vertex(0.0, 1.0, 0.0),
+        vertex(0.0, 1.0, 1.0),
+        vertex(1.0, 1.0, 0.0),
+        vertex(1.0, 1.0, 1.0),
+    ],
+    [
+        // Bottom
+        vertex(0.0, 0.0, 1.0),
+        vertex(0.0, 0.0, 0.0),
+        vertex(1.0, 0.0, 1.0),
+        vertex(1.0, 0.0, 0.0),
+    ],
+    [
+        // Left
+        vertex(0.0, 0.0, 1.0),
+        vertex(0.0, 1.0, 1.0),
+        vertex(0.0, 0.0, 0.0),
+        vertex(0.0, 1.0, 0.0),
+    ],
+    [
+        // Right
+        vertex(1.0, 0.0, 0.0),
+        vertex(1.0, 1.0, 0.0),
+        vertex(1.0, 0.0, 1.0),
+        vertex(1.0, 1.0, 1.0),
+    ],
+    [
+        // Front
+        vertex(1.0, 0.0, 0.0),
+        vertex(1.0, 1.0, 0.0),
+        vertex(0.0, 0.0, 0.0),
+        vertex(0.0, 1.0, 0.0),
+    ],
+    [
+        // Back
+        vertex(1.0, 0.0, 1.0),
+        vertex(1.0, 1.0, 1.0),
+        vertex(0.0, 0.0, 1.0),
+        vertex(0.0, 1.0, 1.0),
+    ],
+];

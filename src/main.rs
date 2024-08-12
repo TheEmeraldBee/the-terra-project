@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use app::window_extension::WindowExtensions;
 use bytemuck::{Pod, Zeroable};
-use mesh::Mesh;
+use mesh::{Mesh, MeshBuilder};
 use prelude::*;
 use wgpu::ShaderStages;
 use winit::{dpi::PhysicalSize, event_loop::EventLoop};
@@ -33,35 +33,10 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        // 0
-        position: [0.0, 0.0, 0.0],
-        color: [1.0, 1.0, 1.0, 1.0],
-    },
-    Vertex {
-        // 1
-        position: [15.0, 0.0, 0.0],
-        color: [1.0, 1.0, 1.0, 1.0],
-    },
-    Vertex {
-        // 2
-        position: [15.0, 15.0, 0.0],
-        color: [1.0, 1.0, 1.0, 1.0],
-    },
-    Vertex {
-        // 3
-        position: [0.0, 15.0, 0.0],
-        color: [1.0, 1.0, 1.0, 1.0],
-    },
-];
-
-const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
-
 pub struct TestScene {
     pipeline: RenderPipeline,
 
-    mesh: Mesh,
+    meshes: Vec<Mesh>,
 
     depth_texture: Texture,
 
@@ -102,6 +77,8 @@ impl TestScene {
             ..Default::default()
         };
 
+        let mut meshes = vec![];
+
         window.lock_cursor(true);
 
         let (camera_buffer, camera_bind_group_layout, camera_bind_group) =
@@ -128,14 +105,23 @@ impl TestScene {
             shader,
             &[&u_res_bind_group_layout, &camera_bind_group_layout],
         );
-        let mesh = Mesh::new(renderer, VERTICES, INDICES);
+
+        // Generate Meshes for example scene.
+        let mut mesh = MeshBuilder::default();
+        mesh.add([0.0; 3], 0);
+        mesh.add([0.0; 3], 4);
+        // for i in 0..6 {
+        //     mesh.add([0.0, 0.0, 0.0], i);
+        // }
+        meshes.push(mesh.build(renderer));
 
         let depth_texture =
             Texture::create_depth_texture(&renderer.device, &renderer.config, "depth_texture");
 
         Box::new(Self {
             pipeline,
-            mesh,
+
+            meshes,
 
             depth_texture,
 
@@ -227,7 +213,9 @@ impl Scene for TestScene {
             // Set the u_resolution's bind group
             pass.set_bind_group(0, &self.u_res_bind_group, &[]);
 
-            self.mesh.render(&mut pass);
+            for mesh in &self.meshes {
+                mesh.render(&mut pass);
+            }
         });
         SceneEvent::Empty
     }

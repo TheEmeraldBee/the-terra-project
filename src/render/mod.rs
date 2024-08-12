@@ -22,7 +22,7 @@ pub mod prelude {
     pub use super::camera::Camera;
     pub use super::error::RendererBuildError;
     pub use super::texture::Texture;
-    pub use super::vertex::Vertex;
+    pub use super::vertex::{vertex, Vertex};
     pub use super::Renderer;
 }
 
