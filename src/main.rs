@@ -1,9 +1,11 @@
 use std::f32::consts::PI;
 
 use app::window_extension::WindowExtensions;
+use bytemuck::{Pod, Zeroable};
 use mesh::Mesh;
 use prelude::*;
-use winit::event_loop::EventLoop;
+use wgpu::ShaderStages;
+use winit::{dpi::PhysicalSize, event_loop::EventLoop};
 
 pub mod app;
 use crate::app::App;
@@ -39,17 +41,17 @@ const VERTICES: &[Vertex] = &[
     },
     Vertex {
         // 1
-        position: [1.0, 0.0, 0.0],
+        position: [15.0, 0.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
     },
     Vertex {
         // 2
-        position: [1.0, 1.0, 0.0],
+        position: [15.0, 15.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
     },
     Vertex {
         // 3
-        position: [0.0, 1.0, 0.0],
+        position: [0.0, 15.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
     },
 ];
@@ -67,7 +69,30 @@ pub struct TestScene {
     camera_buffer: Buffer,
     camera_bind_group: BindGroup,
 
+    u_resolution: UResolution,
+    u_res_buffer: Buffer,
+    u_res_bind_group: BindGroup,
+
     bound: bool,
+}
+
+#[repr(C)]
+#[derive(Pod, Copy, Clone, Zeroable)]
+pub struct UResolution {
+    size: Vec2,
+}
+
+impl UResolution {
+    pub fn new(physical_size: (f32, f32)) -> Self {
+        Self {
+            size: Vec2::new(physical_size.0, physical_size.1),
+        }
+    }
+
+    pub fn update(&mut self, size: PhysicalSize<u32>) {
+        self.size.x = size.width as f32;
+        self.size.y = size.height as f32;
+    }
 }
 
 impl TestScene {
@@ -82,6 +107,12 @@ impl TestScene {
         let (camera_buffer, camera_bind_group_layout, camera_bind_group) =
             camera.bind_group(renderer);
 
+        let inner = window.inner_size();
+        let u_resolution = UResolution::new((inner.width as f32, inner.height as f32));
+
+        let (u_res_buffer, u_res_bind_group_layout, u_res_bind_group) =
+            renderer.uniform(u_resolution, ShaderStages::FRAGMENT, 0);
+
         let shader = renderer
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -95,7 +126,7 @@ impl TestScene {
             PrimitiveTopology::TriangleList,
             renderer,
             shader,
-            &[&camera_bind_group_layout],
+            &[&u_res_bind_group_layout, &camera_bind_group_layout],
         );
         let mesh = Mesh::new(renderer, VERTICES, INDICES);
 
@@ -111,6 +142,10 @@ impl TestScene {
             camera,
             camera_buffer,
             camera_bind_group,
+
+            u_resolution,
+            u_res_buffer,
+            u_res_bind_group,
 
             bound: true,
         })
@@ -188,7 +223,9 @@ impl Scene for TestScene {
             pass.set_pipeline(&self.pipeline);
 
             // Set the camera's bind group
-            pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            // Set the u_resolution's bind group
+            pass.set_bind_group(0, &self.u_res_bind_group, &[]);
 
             self.mesh.render(&mut pass);
         });
@@ -205,6 +242,12 @@ impl Scene for TestScene {
                     &renderer.config,
                     "depth_texture",
                 );
+                self.u_resolution.update(*s);
+                renderer.queue.write_buffer(
+                    &self.u_res_buffer,
+                    0,
+                    bytemuck::cast_slice(&[self.u_resolution]),
+                )
             }
             _ => {}
         }

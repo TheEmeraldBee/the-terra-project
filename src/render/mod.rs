@@ -1,4 +1,7 @@
-use wgpu::{CommandEncoder, TextureView};
+use bytemuck::Pod;
+use wgpu::{
+    util::DeviceExt, BindGroup, BindGroupLayout, Buffer, CommandEncoder, ShaderStages, TextureView,
+};
 
 pub mod camera;
 
@@ -61,5 +64,46 @@ impl<'a> Renderer<'a> {
         self.queue.submit(Some(encoder.finish()));
         frame.present();
         res
+    }
+
+    pub fn uniform<T: Pod>(
+        &self,
+        buffer_data: T,
+        visibility: ShaderStages,
+        binding: u32,
+    ) -> (Buffer, BindGroupLayout, BindGroup) {
+        let buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(&[buffer_data]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+        let bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding,
+                        visibility,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                    label: None,
+                });
+
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding,
+                resource: buffer.as_entire_binding(),
+            }],
+            label: None,
+        });
+
+        (buffer, bind_group_layout, bind_group)
     }
 }
