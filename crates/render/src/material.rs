@@ -16,7 +16,7 @@ pub struct VertexInput {
 }
 
 pub struct DefaultMaterial {
-    uniform: Uniform<VertexInput>,
+    vertex_uniform: Uniform<VertexInput>,
 
     pipeline: RenderPipeline,
 }
@@ -28,17 +28,20 @@ impl DefaultMaterial {
 
         let pipeline = renderer.pipeline(&[&bind_group_layout], &shader_module);
 
-        Self { uniform, pipeline }
+        Self {
+            vertex_uniform: uniform,
+            pipeline,
+        }
     }
 }
 
 impl Material for DefaultMaterial {
     fn update_uniforms(&mut self, renderer: &Renderer) {
         // Set the view matrix from the renderer's view matrix
-        self.uniform.data.view_proj = renderer.view_matrix;
+        self.vertex_uniform.data.view_proj = renderer.view_matrix;
 
         // Update the uniform with the new data.
-        self.uniform.update(renderer);
+        self.vertex_uniform.update(renderer);
     }
 
     fn apply(&mut self, render_pass: &mut RenderPass) {
@@ -46,6 +49,6 @@ impl Material for DefaultMaterial {
         render_pass.set_pipeline(&self.pipeline);
 
         // Apply the camera uniform
-        self.uniform.apply(render_pass, 0);
+        self.vertex_uniform.apply(render_pass, 0);
     }
 }

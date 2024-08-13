@@ -8,24 +8,31 @@ use app::{
     App,
 };
 use glam::Vec3;
+use noise::{NoiseFn, Perlin};
 use render::{
     camera::Camera,
     frame::Frame,
     material::{DefaultMaterial, Material},
-    mesh::{builder::MeshBuilder, render::RenderMesh, Mesh},
+    mesh::{render::RenderMesh, Mesh},
     renderer::Renderer,
 };
 use wgpu::{include_wgsl, Color};
-use winit::{event_loop::EventLoop, keyboard::KeyCode};
+use winit::keyboard::KeyCode;
+use world::{
+    chunk::{Chunk, CHUNK_SIZE},
+    tile::Tile,
+};
 
 fn main() -> anyhow::Result<()> {
-    // Initialize the logger.
-    env_logger::init();
+    // Initialize the logger, filtering out spam logs.
+    env_logger::Builder::from_default_env()
+        .filter_module("wgpu_core::device::resource", log::LevelFilter::Error)
+        .filter_module("wgpu_core::present", log::LevelFilter::Error)
+        .filter_module("wgpu_core::device::life", log::LevelFilter::Error)
+        .filter_module("wgpu_core::resource", log::LevelFilter::Error)
+        .init();
 
-    // Create an event loop.
-    let event_loop: EventLoop<()> = EventLoop::builder().build()?;
-
-    event_loop.run_app(&mut App::new(&TestScene::load))?;
+    App::new(&TestScene::load).run()?;
     Ok(())
 }
 
@@ -50,25 +57,33 @@ impl TestScene {
 
         window.lock_cursor(true);
 
-        // Generate Meshes for example scene.
-        for iteration in 0..12 {
-            let mut mesh = MeshBuilder::default();
-            for face in 0..6 {
-                mesh.add([0.0, 0.0, -5.0], face);
-            }
-
-            meshes.push(
-                mesh.with_translation([0.0, 0.0, iteration as f32 * 3.0])
-                    .build(renderer),
-            )
-        }
-
         let material = DefaultMaterial::new(
             renderer,
             renderer
                 .device
                 .create_shader_module(include_wgsl!("../assets/shaders/basic.wgsl")),
         );
+
+        let mut chunk = Chunk::new();
+        let perlin = Perlin::new(0);
+
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    const FREQUENCY: f64 = 0.05;
+                    let value = perlin.get([
+                        x as f64 * FREQUENCY,
+                        y as f64 * FREQUENCY,
+                        z as f64 * FREQUENCY,
+                    ]);
+                    if value >= 0.2 {
+                        chunk.set([x, y, z], Some(Tile {}));
+                    }
+                }
+            }
+        }
+
+        meshes.push(chunk.mesh(renderer));
 
         Box::new(Self {
             meshes,
@@ -101,7 +116,10 @@ impl Scene for TestScene {
             self.camera.yaw += mouse_delta.x * 0.5 * delta;
             self.camera.pitch -= mouse_delta.y * 0.5 * delta;
 
-            self.camera.pitch = self.camera.pitch.clamp(-PI / 2.0, PI / 2.0);
+            self.camera.pitch = self
+                .camera
+                .pitch
+                .clamp((-PI / 2.0) + 0.01, (PI / 2.0) - 0.01);
 
             self.camera.yaw = self.camera.yaw.rem_euclid(2.0 * PI);
         }
@@ -150,6 +168,6 @@ impl Scene for TestScene {
     }
 
     fn exit(&mut self) {
-        println!("Thank you for playing!");
+        log::info!("Exiting Game!");
     }
 }

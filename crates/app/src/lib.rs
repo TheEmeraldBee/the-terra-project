@@ -4,7 +4,7 @@ use input::Input;
 use render::renderer::Renderer;
 use scene::{Scene, SceneFn, SceneState};
 use time::Time;
-use winit::window::Window;
+use winit::{error::EventLoopError, event_loop::EventLoop, window::Window};
 
 pub mod events;
 pub mod frame;
@@ -43,5 +43,13 @@ impl<'a> App<'a> {
             input: Input::default(),
             time: Time::default(),
         }
+    }
+
+    pub fn run(&mut self) -> Result<(), EventLoopError> {
+        let event_loop = EventLoop::new()?;
+
+        event_loop.run_app(self)?;
+
+        Ok(())
     }
 }

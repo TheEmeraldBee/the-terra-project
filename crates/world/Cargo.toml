@@ -1,0 +1,12 @@
+[package]
+name = "world"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+render = { workspace = true }
+wgpu = { workspace = true }
+glam = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+anyhow = { workspace = true }

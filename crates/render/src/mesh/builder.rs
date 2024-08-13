@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::{
     renderer::Renderer,
     vertex::{vertex, Vertex},
@@ -18,10 +20,10 @@ impl MeshBuilder {
         self
     }
 
-    pub fn add(&mut self, cord: [f32; 3], face: usize) -> &mut Self {
+    pub fn add(&mut self, coord: [f32; 3], face: usize) -> &mut Self {
         // Push all vertice faces
         for i in &VERTICES[face] {
-            self.vertices.push(*i + cord)
+            self.vertices.push(*i + coord)
         }
 
         for i in &INDICES {
@@ -30,6 +32,12 @@ impl MeshBuilder {
 
         self.face_count += 1;
         self
+    }
+
+    pub fn add_range(&mut self, coord: [f32; 3], faces: Range<usize>) {
+        for face in faces {
+            self.add(coord, face);
+        }
     }
 
     pub fn with_translation(mut self, distance: [f32; 3]) -> Self {
@@ -87,10 +95,10 @@ const VERTICES: [[Vertex; 4]; 6] = [
     ],
     [
         // Front
-        vertex(1.0, 0.0, 0.0),
-        vertex(1.0, 1.0, 0.0),
         vertex(0.0, 0.0, 0.0),
         vertex(0.0, 1.0, 0.0),
+        vertex(1.0, 0.0, 0.0),
+        vertex(1.0, 1.0, 0.0),
     ],
     [
         // Back
