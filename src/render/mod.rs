@@ -1,7 +1,11 @@
-use bytemuck::Pod;
+use crate::prelude::*;
+use projection::Projection;
 use wgpu::{
-    util::DeviceExt, BindGroup, BindGroupLayout, Buffer, CommandEncoder, ShaderStages, TextureView,
+    BindGroupLayout, CommandEncoder, FragmentState, MultisampleState, PipelineCompilationOptions,
+    PrimitiveState, RenderPipelineDescriptor, ShaderModule, SurfaceTexture, TextureView,
+    VertexState,
 };
+use winit::dpi::PhysicalSize;
 
 pub mod camera;
 
@@ -32,18 +36,26 @@ pub struct Renderer<'a> {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
+
+    pub depth_texture: Texture,
+    pub projection: Projection,
+    pub view_matrix: [[f32; 4]; 4],
 }
 
 impl<'a> Renderer<'a> {
-    pub fn resize(&mut self, new_size: (u32, u32)) {
-        // Reconfigure the surface with the new size
-        self.config.width = new_size.0.max(1);
-        self.config.height = new_size.1.max(1);
+    pub fn resize(&mut self, size: &PhysicalSize<u32>) {
+        // Reconfigure the surface with the new size.
+        self.config.width = size.width.max(1);
+        self.config.height = size.height.max(1);
         self.surface.configure(&self.device, &self.config);
+
+        // Re-build the depth-texture and projection matrix.
+        self.depth_texture =
+            Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
+        self.projection.resize(size);
     }
 
-    pub fn frame<T>(&self, f: impl Fn(&TextureView, &mut CommandEncoder) -> T) -> T {
-        // Get the current surface texture.
+    pub fn frame(&self) -> (SurfaceTexture, TextureView, CommandEncoder) {
         let frame = self
             .surface
             .get_current_texture()
@@ -54,56 +66,57 @@ impl<'a> Renderer<'a> {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = self
+        let encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        // Run Passed Rendering Function.
-        let res = f(&view, &mut encoder);
-
-        self.queue.submit(Some(encoder.finish()));
-        frame.present();
-        res
+        (frame, view, encoder)
     }
 
-    pub fn uniform<T: Pod>(
+    pub fn pipeline(
         &self,
-        buffer_data: T,
-        visibility: ShaderStages,
-        binding: u32,
-    ) -> (Buffer, BindGroupLayout, BindGroup) {
-        let buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&[buffer_data]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-        let bind_group_layout =
+        bind_group_layouts: &[&BindGroupLayout],
+        shader_module: &ShaderModule,
+    ) -> RenderPipeline {
+        let render_pipeline_layout =
             self.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding,
-                        visibility,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: None,
+                    bind_group_layouts,
+                    push_constant_ranges: &[],
                 });
 
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding,
-                resource: buffer.as_entire_binding(),
-            }],
-            label: None,
-        });
-
-        (buffer, bind_group_layout, bind_group)
+        self.device
+            .create_render_pipeline(&RenderPipelineDescriptor {
+                label: None,
+                layout: Some(&render_pipeline_layout),
+                vertex: VertexState {
+                    module: shader_module,
+                    entry_point: "vs_main",
+                    compilation_options: PipelineCompilationOptions::default(),
+                    buffers: &[Vertex::desc()],
+                },
+                fragment: Some(FragmentState {
+                    module: shader_module,
+                    entry_point: "fs_main",
+                    compilation_options: PipelineCompilationOptions::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: self.config.format,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: PrimitiveState::default(),
+                multisample: MultisampleState::default(),
+                multiview: None,
+                cache: None,
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: Texture::DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less, // 1.
+                    stencil: wgpu::StencilState::default(),     // 2.
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+            })
     }
 }

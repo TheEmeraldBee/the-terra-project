@@ -1,4 +1,7 @@
-use crate::prelude::*;
+use crate::{
+    events::{AppEvent, Events},
+    prelude::*,
+};
 use winit::{
     application::ApplicationHandler,
     event::{DeviceEvent, RawKeyEvent},
@@ -6,6 +9,8 @@ use winit::{
 };
 
 use std::sync::Arc;
+
+use super::frame::UpdateFrame;
 
 impl<'a> ApplicationHandler for App<'a> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -33,6 +38,12 @@ impl<'a> ApplicationHandler for App<'a> {
                 self.scene = SceneState::Loaded(f(&window, self.renderer.as_ref().unwrap()))
             }
             SceneState::Loaded(_) => {}
+        }
+    }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        if let SceneState::Loaded(l) = &mut self.scene {
+            l.exit()
         }
     }
 
@@ -76,7 +87,7 @@ impl<'a> ApplicationHandler for App<'a> {
         match &event {
             WindowEvent::Resized(size) => {
                 // Tell the renderer to resize
-                renderer.resize((size.width, size.height));
+                renderer.resize(size);
 
                 // For Mac, request a redraw of the frame.
                 window.request_redraw();
@@ -87,19 +98,54 @@ impl<'a> ApplicationHandler for App<'a> {
             WindowEvent::RedrawRequested => {
                 self.time.update();
 
-                let frame = Frame {
-                    renderer,
+                let mut update_frame = UpdateFrame {
                     window,
                     input: &self.input,
                     time: &self.time,
+
+                    events: Events::new(),
                 };
 
-                match scene.update(frame) {
-                    SceneEvent::ChangeScene(f) => self.scene = SceneState::Unloaded(f),
-                    SceneEvent::SetScene(s) => self.scene = SceneState::Loaded(s),
-                    SceneEvent::Empty => {}
+                let next_scene: Option<SceneState> = match scene.update(&mut update_frame) {
+                    SceneEvent::ChangeScene(f) => {
+                        scene.exit();
+                        Some(SceneState::Unloaded(f))
+                    }
+                    SceneEvent::SetScene(s) => {
+                        scene.exit();
+                        Some(SceneState::Loaded(s))
+                    }
+                    SceneEvent::Empty => None,
                 };
+
+                for event in update_frame.events.events {
+                    match event {
+                        AppEvent::ApplyCamera(c) => {
+                            renderer.view_matrix =
+                                (renderer.projection.proj * c.view_matrix()).to_cols_array_2d();
+                        }
+                    }
+                }
+
+                let (frame_tex, view, mut encoder) = renderer.frame();
+
+                let mut frame = Frame {
+                    renderer,
+                    window,
+                    view: &view,
+                    encoder: &mut encoder,
+                };
+
+                scene.render(&mut frame);
+
+                renderer.queue.submit(Some(encoder.finish()));
+                frame_tex.present();
                 self.input.update();
+
+                if let Some(s) = next_scene {
+                    self.scene = s;
+                }
+
                 window.request_redraw();
             }
             WindowEvent::CursorMoved { position, .. } => self

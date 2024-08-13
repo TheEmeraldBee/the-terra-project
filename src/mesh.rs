@@ -1,35 +1,18 @@
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BindGroupLayout, Buffer, BufferUsages, PrimitiveState, PrimitiveTopology, RenderPass,
-    RenderPipeline, ShaderModule,
+    BindGroupLayout, Buffer, BufferUsages, PrimitiveState, PrimitiveTopology, RenderPipeline,
+    ShaderModule,
 };
 
-use crate::prelude::{vertex, Renderer, Texture, Vertex};
+use crate::prelude::{Renderer, Texture, Vertex};
 
-#[derive(Default)]
-pub struct MeshBuilder {
-    vertices: Vec<Vertex>,
-    indices: Vec<u32>,
-    face_count: u32,
-}
+pub mod builder;
+pub mod render;
 
-impl MeshBuilder {
-    pub fn add(&mut self, coord: [f32; 3], face: usize) {
-        // Push all vertice faces
-        for i in &VERTICES[face] {
-            self.vertices.push(*i + coord)
-        }
-
-        for i in &INDICES {
-            self.indices.push(*i + (4 * self.face_count))
-        }
-
-        self.face_count += 1;
-    }
-
-    pub fn build(self, renderer: &Renderer) -> Mesh {
-        Mesh::new(renderer, &self.vertices, &self.indices)
-    }
+pub mod prelude {
+    pub use super::builder::MeshBuilder;
+    pub use super::render::RenderMesh;
+    pub use super::Mesh;
 }
 
 pub struct Mesh {
@@ -71,7 +54,7 @@ impl Mesh {
             renderer
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Render Pipeline Layout"),
+                    label: None,
                     bind_group_layouts,
                     push_constant_ranges: &[],
                 });
@@ -112,61 +95,4 @@ impl Mesh {
                 cache: None,
             })
     }
-
-    pub fn render(&self, pass: &mut RenderPass<'_>) {
-        // Set the vertex buffer.
-        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-
-        // Set the index buffer.
-        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
-
-        // Draw the vertices.
-        pass.draw_indexed(0..self.num_indices, 0, 0..1);
-    }
 }
-
-const INDICES: [u32; 6] = [0, 1, 2, 2, 1, 3];
-const VERTICES: [[Vertex; 4]; 6] = [
-    [
-        // Top
-        vertex(0.0, 1.0, 0.0),
-        vertex(0.0, 1.0, 1.0),
-        vertex(1.0, 1.0, 0.0),
-        vertex(1.0, 1.0, 1.0),
-    ],
-    [
-        // Bottom
-        vertex(0.0, 0.0, 1.0),
-        vertex(0.0, 0.0, 0.0),
-        vertex(1.0, 0.0, 1.0),
-        vertex(1.0, 0.0, 0.0),
-    ],
-    [
-        // Left
-        vertex(0.0, 0.0, 1.0),
-        vertex(0.0, 1.0, 1.0),
-        vertex(0.0, 0.0, 0.0),
-        vertex(0.0, 1.0, 0.0),
-    ],
-    [
-        // Right
-        vertex(1.0, 0.0, 0.0),
-        vertex(1.0, 1.0, 0.0),
-        vertex(1.0, 0.0, 1.0),
-        vertex(1.0, 1.0, 1.0),
-    ],
-    [
-        // Front
-        vertex(1.0, 0.0, 0.0),
-        vertex(1.0, 1.0, 0.0),
-        vertex(0.0, 0.0, 0.0),
-        vertex(0.0, 1.0, 0.0),
-    ],
-    [
-        // Back
-        vertex(1.0, 0.0, 1.0),
-        vertex(1.0, 1.0, 1.0),
-        vertex(0.0, 0.0, 1.0),
-        vertex(0.0, 1.0, 1.0),
-    ],
-];

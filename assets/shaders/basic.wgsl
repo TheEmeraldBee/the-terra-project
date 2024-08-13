@@ -1,7 +1,7 @@
 struct Camera {
     view_proj: mat4x4<f32>,
 };
-@group(1) @binding(0)
+@group(0) @binding(0)
 var<uniform> camera: Camera;
 
 struct VertexInput {
@@ -20,13 +20,6 @@ fn vs_main(
     out.chord = camera.view_proj * vec4<f32>(model.position, 1.0);
     return out;
 }
-
-struct ShaderInput {
-    u_resolution: vec2<f32>,
-};
-
-@group(0) @binding(0)
-var<uniform> input: ShaderInput;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {

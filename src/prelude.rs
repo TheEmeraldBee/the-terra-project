@@ -1,5 +1,6 @@
 pub use crate::app::prelude::*;
 pub use crate::input::*;
+pub use crate::mesh::prelude::*;
 pub use crate::render::prelude::*;
 pub use crate::scene::prelude::*;
 pub use crate::time::*;

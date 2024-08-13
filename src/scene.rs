@@ -1,9 +1,11 @@
-use crate::prelude::*;
+use crate::{app::frame::UpdateFrame, prelude::*};
 
 pub type SceneFn = &'static dyn Fn(&Window, &Renderer) -> Box<dyn Scene>;
 
 pub trait Scene {
-    fn update(&mut self, frame: Frame) -> SceneEvent;
+    fn update(&mut self, frame: &mut UpdateFrame) -> SceneEvent;
+    fn render(&mut self, frame: &mut Frame);
+    fn exit(&mut self) {}
     fn event(&mut self, _event: &WindowEvent, _renderer: &Renderer, _window: &Window) {}
 }
 

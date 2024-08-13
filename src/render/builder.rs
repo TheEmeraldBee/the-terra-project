@@ -56,12 +56,19 @@ impl<'a> NewRenderer<'a> for Renderer<'a> {
             .ok_or(RendererBuildError::SurfaceConfigError)?;
         surface.configure(&device, &config);
 
+        let depth_texture = super::Texture::create_depth_texture(&device, &config, "Depth Texture");
+
         Ok(Self {
             surface,
             device,
             queue,
             config,
             adapter,
+
+            depth_texture,
+
+            projection: super::projection::Projection::default(),
+            view_matrix: [[0.0; 4]; 4],
         })
     }
 }
