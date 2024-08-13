@@ -1,0 +1,11 @@
+[package]
+name = "app"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+winit = { workspace=true }
+render = { workspace=true }
+wgpu = { workspace=true }
+glam = { workspace=true }
+log = { workspace=true }

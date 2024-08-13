@@ -1,4 +1,4 @@
-use crate::Camera;
+use render::camera::Camera;
 
 pub enum AppEvent {
     ApplyCamera(Camera),

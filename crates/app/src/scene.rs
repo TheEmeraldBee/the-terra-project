@@ -1,4 +1,7 @@
-use crate::{app::frame::UpdateFrame, prelude::*};
+use render::{frame::Frame, renderer::Renderer};
+use winit::{event::WindowEvent, window::Window};
+
+use crate::frame::UpdateFrame;
 
 pub type SceneFn = &'static dyn Fn(&Window, &Renderer) -> Box<dyn Scene>;
 
@@ -29,8 +32,4 @@ impl SceneState {
             _ => panic!("Scene is not loaded. This is a bug, please report!"),
         }
     }
-}
-
-pub mod prelude {
-    pub use super::{Scene, SceneEvent, SceneState};
 }

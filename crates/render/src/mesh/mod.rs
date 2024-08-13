@@ -4,16 +4,10 @@ use wgpu::{
     ShaderModule,
 };
 
-use crate::prelude::{Renderer, Texture, Vertex};
+use crate::{renderer::Renderer, texture::Texture, vertex::Vertex};
 
 pub mod builder;
 pub mod render;
-
-pub mod prelude {
-    pub use super::builder::MeshBuilder;
-    pub use super::render::RenderMesh;
-    pub use super::Mesh;
-}
 
 pub struct Mesh {
     vertex_buffer: Buffer,

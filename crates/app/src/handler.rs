@@ -1,11 +1,17 @@
 use crate::{
     events::{AppEvent, Events},
-    prelude::*,
+    scene::{SceneEvent, SceneState},
+    App,
+};
+use render::{
+    frame::Frame,
+    renderer::{builder::NewRenderer, Renderer},
 };
 use winit::{
     application::ApplicationHandler,
-    event::{DeviceEvent, RawKeyEvent},
-    window::WindowId,
+    event::{DeviceEvent, RawKeyEvent, WindowEvent},
+    event_loop::ActiveEventLoop,
+    window::{Window, WindowId},
 };
 
 use std::sync::Arc;

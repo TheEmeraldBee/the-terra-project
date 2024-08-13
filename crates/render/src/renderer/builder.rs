@@ -1,4 +1,6 @@
-use super::{error::RendererBuildError, Renderer};
+use crate::{error::RendererBuildError, projection::Projection};
+
+use super::Renderer;
 use futures::executor::block_on;
 use std::sync::Arc;
 use wgpu::Instance;
@@ -67,7 +69,7 @@ impl<'a> NewRenderer<'a> for Renderer<'a> {
 
             depth_texture,
 
-            projection: super::projection::Projection::default(),
+            projection: Projection::default(),
             view_matrix: [[0.0; 4]; 4],
         })
     }

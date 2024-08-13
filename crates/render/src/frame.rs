@@ -2,10 +2,9 @@ use wgpu::{
     CommandEncoder, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor,
     TextureView,
 };
+use winit::window::Window;
 
-use crate::prelude::*;
-
-use crate::events::Events;
+use crate::renderer::Renderer;
 
 pub struct Frame<'a, 'r, 'e> {
     pub renderer: &'a Renderer<'r>,
@@ -39,12 +38,4 @@ impl<'a, 'r, 'e> Frame<'a, 'r, 'e> {
             timestamp_writes: None,
         })
     }
-}
-
-pub struct UpdateFrame<'a> {
-    pub input: &'a Input,
-    pub time: &'a Time,
-    pub window: &'a Window,
-
-    pub events: Events,
 }

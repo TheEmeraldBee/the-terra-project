@@ -1,9 +1,8 @@
 use std::any::Any;
 
-use wgpu::{RenderPass, ShaderModule, ShaderStages};
+use wgpu::{RenderPass, RenderPipeline, ShaderModule, ShaderStages};
 
-use crate::prelude::*;
-use crate::uniform::Uniform;
+use crate::{renderer::Renderer, uniform::Uniform};
 
 pub trait Material: Any {
     fn update_uniforms(&mut self, renderer: &Renderer);

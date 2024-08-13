@@ -1,0 +1,14 @@
+[package]
+name = "render"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+log = { workspace = true }
+glam = { workspace = true }
+wgpu = { workspace = true }
+winit = { workspace = true }
+thiserror = { workspace = true }
+bytemuck = { workspace = true }
+futures = { workspace = true }

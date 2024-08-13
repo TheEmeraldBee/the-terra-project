@@ -1,4 +1,7 @@
-use crate::{vertex, Renderer, Vertex};
+use crate::{
+    renderer::Renderer,
+    vertex::{vertex, Vertex},
+};
 
 use super::Mesh;
 

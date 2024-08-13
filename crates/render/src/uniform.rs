@@ -1,17 +1,27 @@
+use std::ops::{Deref, DerefMut};
+
 use bytemuck::{Pod, Zeroable};
 use wgpu::{util::DeviceExt, BindGroup, BindGroupLayout, Buffer, RenderPass, ShaderStages};
 
-use derive_more::{Deref, DerefMut};
+use crate::renderer::Renderer;
 
-use crate::Renderer;
-
-#[derive(Deref, DerefMut)]
 pub struct Uniform<T: Zeroable + Pod> {
     pub buffer: Buffer,
     pub bind_group: BindGroup,
-    #[deref]
-    #[deref_mut]
     pub data: T,
+}
+
+impl<T: Zeroable + Pod> Deref for Uniform<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<T: Zeroable + Pod> DerefMut for Uniform<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
 }
 
 impl<T: Zeroable + Pod + Clone> Uniform<T> {

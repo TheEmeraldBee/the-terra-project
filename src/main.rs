@@ -1,31 +1,22 @@
 use std::f32::consts::PI;
 
-use app::{frame::UpdateFrame, window_extension::WindowExtensions};
-use material::{DefaultMaterial, Material};
-use prelude::*;
+use app::{
+    events::AppEvent,
+    frame::UpdateFrame,
+    scene::{Scene, SceneEvent},
+    window_extension::WindowExtensions,
+    App,
+};
+use glam::Vec3;
+use render::{
+    camera::Camera,
+    frame::Frame,
+    material::{DefaultMaterial, Material},
+    mesh::{builder::MeshBuilder, render::RenderMesh, Mesh},
+    renderer::Renderer,
+};
 use wgpu::{include_wgsl, Color};
-use winit::event_loop::EventLoop;
-
-pub mod app;
-use crate::app::App;
-
-pub mod render;
-
-pub mod scene;
-
-pub mod input;
-
-pub mod time;
-
-pub mod prelude;
-
-pub mod mesh;
-
-pub mod events;
-
-pub mod material;
-
-pub mod uniform;
+use winit::{event_loop::EventLoop, keyboard::KeyCode};
 
 fn main() -> anyhow::Result<()> {
     // Initialize the logger.
@@ -138,9 +129,7 @@ impl Scene for TestScene {
         vel *= delta;
         self.camera.pos += vel;
 
-        frame
-            .events
-            .register(events::AppEvent::ApplyCamera(self.camera));
+        frame.events.register(AppEvent::ApplyCamera(self.camera));
 
         SceneEvent::Empty
     }

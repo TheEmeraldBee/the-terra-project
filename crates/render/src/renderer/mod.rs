@@ -1,34 +1,13 @@
-use crate::prelude::*;
-use projection::Projection;
 use wgpu::{
     BindGroupLayout, CommandEncoder, FragmentState, MultisampleState, PipelineCompilationOptions,
-    PrimitiveState, RenderPipelineDescriptor, ShaderModule, SurfaceTexture, TextureView,
-    VertexState,
+    PrimitiveState, RenderPipeline, RenderPipelineDescriptor, ShaderModule, SurfaceTexture,
+    TextureView, VertexState,
 };
 use winit::dpi::PhysicalSize;
 
-pub mod camera;
-
-pub mod vertex;
+use crate::{texture::Texture, vertex::Vertex};
 
 pub mod builder;
-
-pub mod error;
-
-pub mod bind_group;
-
-pub mod projection;
-
-pub mod texture;
-
-pub mod prelude {
-    pub use super::builder::NewRenderer;
-    pub use super::camera::Camera;
-    pub use super::error::RendererBuildError;
-    pub use super::texture::Texture;
-    pub use super::vertex::{vertex, Vertex};
-    pub use super::Renderer;
-}
 
 pub struct Renderer<'a> {
     pub surface: wgpu::Surface<'a>,
@@ -37,8 +16,8 @@ pub struct Renderer<'a> {
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
 
-    pub depth_texture: Texture,
-    pub projection: Projection,
+    pub depth_texture: crate::texture::Texture,
+    pub projection: crate::projection::Projection,
     pub view_matrix: [[f32; 4]; 4],
 }
 
