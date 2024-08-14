@@ -71,6 +71,7 @@ impl<'a> NewRenderer<'a> for Renderer<'a> {
 
             projection: Projection::default(),
             view_matrix: [[0.0; 4]; 4],
+            view_pos: [0.0; 4],
         })
     }
 }

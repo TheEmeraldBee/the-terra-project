@@ -15,8 +15,8 @@ pub struct MeshBuilder {
 }
 
 impl MeshBuilder {
-    pub fn with_added(mut self, chord: [f32; 3], face: usize) -> Self {
-        self.add(chord, face);
+    pub fn with_added(mut self, chord: [f32; 3], faces: Range<usize>) -> Self {
+        self.add_range(chord, faces);
         self
     }
 
@@ -48,11 +48,7 @@ impl MeshBuilder {
     pub fn translate(&mut self, distance: [f32; 3]) -> &mut Self {
         for vertex in &mut self.vertices {
             vertex.position[0] += distance[0];
-        }
-        for vertex in &mut self.vertices {
             vertex.position[1] += distance[1];
-        }
-        for vertex in &mut self.vertices {
             vertex.position[2] += distance[2];
         }
         self
@@ -67,44 +63,44 @@ const INDICES: [u32; 6] = [0, 1, 2, 2, 1, 3];
 const VERTICES: [[Vertex; 4]; 6] = [
     [
         // Top
-        vertex(0.0, 1.0, 0.0),
-        vertex(0.0, 1.0, 1.0),
-        vertex(1.0, 1.0, 0.0),
-        vertex(1.0, 1.0, 1.0),
+        vertex(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0),
+        vertex(0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0),
+        vertex(1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0),
+        vertex(1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0),
     ],
     [
         // Bottom
-        vertex(0.0, 0.0, 1.0),
-        vertex(0.0, 0.0, 0.0),
-        vertex(1.0, 0.0, 1.0),
-        vertex(1.0, 0.0, 0.0),
+        vertex(0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0),
+        vertex(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0),
+        vertex(1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0, 0.0),
+        vertex(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, -1.0, 0.0),
     ],
     [
         // Left
-        vertex(0.0, 0.0, 1.0),
-        vertex(0.0, 1.0, 1.0),
-        vertex(0.0, 0.0, 0.0),
-        vertex(0.0, 1.0, 0.0),
+        vertex(0.0, 0.0, 1.0, 0.0, 1.0, -1.0, 0.0, 0.0),
+        vertex(0.0, 1.0, 1.0, 1.0, 1.0, -1.0, 0.0, 0.0),
+        vertex(0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0),
+        vertex(0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0),
     ],
     [
         // Right
-        vertex(1.0, 0.0, 0.0),
-        vertex(1.0, 1.0, 0.0),
-        vertex(1.0, 0.0, 1.0),
-        vertex(1.0, 1.0, 1.0),
+        vertex(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+        vertex(1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0),
+        vertex(1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0),
+        vertex(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0),
     ],
     [
         // Front
-        vertex(0.0, 0.0, 0.0),
-        vertex(0.0, 1.0, 0.0),
-        vertex(1.0, 0.0, 0.0),
-        vertex(1.0, 1.0, 0.0),
+        vertex(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0),
+        vertex(0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, -1.0),
+        vertex(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0),
+        vertex(1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, -1.0),
     ],
     [
         // Back
-        vertex(1.0, 0.0, 1.0),
-        vertex(1.0, 1.0, 1.0),
-        vertex(0.0, 0.0, 1.0),
-        vertex(0.0, 1.0, 1.0),
+        vertex(1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0),
+        vertex(1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0),
+        vertex(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0),
+        vertex(0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0),
     ],
 ];

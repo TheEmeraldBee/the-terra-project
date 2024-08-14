@@ -3,6 +3,7 @@ use crate::{
     scene::{SceneEvent, SceneState},
     App,
 };
+use glam::Vec4;
 use render::{
     frame::Frame,
     renderer::{builder::NewRenderer, Renderer},
@@ -127,6 +128,7 @@ impl<'a> ApplicationHandler for App<'a> {
                 for event in update_frame.events.events {
                     match event {
                         AppEvent::ApplyCamera(c) => {
+                            renderer.view_pos = Vec4::new(c.pos.x, c.pos.y, c.pos.z, 1.0).into();
                             renderer.view_matrix =
                                 (renderer.projection.proj * c.view_matrix()).to_cols_array_2d();
                         }

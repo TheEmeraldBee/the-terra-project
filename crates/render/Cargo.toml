@@ -12,3 +12,4 @@ winit = { workspace = true }
 thiserror = { workspace = true }
 bytemuck = { workspace = true }
 futures = { workspace = true }
+image = { workspace = true }

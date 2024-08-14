@@ -19,6 +19,7 @@ pub struct Renderer<'a> {
     pub depth_texture: crate::texture::Texture,
     pub projection: crate::projection::Projection,
     pub view_matrix: [[f32; 4]; 4],
+    pub view_pos: [f32; 4],
 }
 
 impl<'a> Renderer<'a> {

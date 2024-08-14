@@ -12,9 +12,10 @@ use noise::{NoiseFn, Perlin};
 use render::{
     camera::Camera,
     frame::Frame,
-    material::{DefaultMaterial, Material},
-    mesh::{render::RenderMesh, Mesh},
+    material::{DefaultMaterial, Light, Material, UnlitMaterial},
+    mesh::{builder::MeshBuilder, render::RenderMesh, Mesh},
     renderer::Renderer,
+    texture::Texture,
 };
 use wgpu::{include_wgsl, Color};
 use winit::keyboard::KeyCode;
@@ -38,61 +39,104 @@ fn main() -> anyhow::Result<()> {
 
 pub struct TestScene {
     meshes: Vec<Mesh>,
+    unlit_meshes: Vec<Mesh>,
 
     camera: Camera,
 
     bound: bool,
 
     material: DefaultMaterial,
+    unlit_material: UnlitMaterial,
 }
 
 impl TestScene {
     fn load(window: &winit::window::Window, renderer: &Renderer) -> Box<dyn Scene> {
         let camera = Camera {
-            pos: Vec3::new(0.0, 0.0, 0.0),
+            pos: Vec3::new(0.0, CHUNK_SIZE as f32 + 10.0, 0.0),
+            pitch: -PI / 2.0,
             ..Default::default()
         };
 
         let mut meshes = vec![];
+        let mut unlit_meshes = vec![];
 
         window.lock_cursor(true);
 
         let material = DefaultMaterial::new(
             renderer,
-            renderer
+            &renderer
                 .device
                 .create_shader_module(include_wgsl!("../assets/shaders/basic.wgsl")),
+            [
+                Light::new(Vec3::new(0.0, 0.0, 0.0), Color::RED),
+                Light::new(Vec3::new(0.0, 50.0, 0.0), Color::GREEN),
+                Light::new(Vec3::new(50.0, 0.0, 50.0), Color::BLUE),
+            ],
+            Texture::from_bytes(renderer, include_bytes!("../assets/textures/grid.png")).unwrap(),
+        );
+        let unlit_material = UnlitMaterial::new(
+            renderer,
+            &renderer
+                .device
+                .create_shader_module(include_wgsl!("../assets/shaders/unlit.wgsl")),
         );
 
-        let mut chunk = Chunk::new();
+        unlit_meshes.extend([
+            MeshBuilder::default()
+                .with_added([0.0, 0.0, 0.0], 0..6)
+                .build(renderer),
+            MeshBuilder::default()
+                .with_added([0.0, 50.0, 0.0], 0..6)
+                .build(renderer),
+            MeshBuilder::default()
+                .with_added([50.0, 0.0, 50.0], 0..6)
+                .build(renderer),
+        ]);
+
         let perlin = Perlin::new(0);
 
-        for x in 0..CHUNK_SIZE {
-            for y in 0..CHUNK_SIZE {
-                for z in 0..CHUNK_SIZE {
-                    const FREQUENCY: f64 = 0.05;
-                    let value = perlin.get([
-                        x as f64 * FREQUENCY,
-                        y as f64 * FREQUENCY,
-                        z as f64 * FREQUENCY,
-                    ]);
-                    if value >= 0.2 {
-                        chunk.set([x, y, z], Some(Tile {}));
+        for x in -1..=1 {
+            for y in -1..1 {
+                for z in -1..=1 {
+                    let mut chunk = Chunk::new();
+                    for dx in 0..CHUNK_SIZE {
+                        for dy in 0..CHUNK_SIZE {
+                            for dz in 0..CHUNK_SIZE {
+                                const FREQUENCY: f64 = 0.05;
+                                let value = perlin.get([
+                                    (dx as f64 + x as f64 * CHUNK_SIZE as f64) * FREQUENCY,
+                                    (dy as f64 + y as f64 * CHUNK_SIZE as f64) * FREQUENCY,
+                                    (dz as f64 + z as f64 * CHUNK_SIZE as f64) * FREQUENCY,
+                                ]);
+                                if value >= 0.2 {
+                                    chunk.set([dx, dy, dz], Some(Tile {}));
+                                }
+                            }
+                        }
                     }
+
+                    meshes.push(chunk.mesh(
+                        renderer,
+                        [
+                            x as f32 * CHUNK_SIZE as f32,
+                            y as f32 * CHUNK_SIZE as f32,
+                            z as f32 * CHUNK_SIZE as f32,
+                        ],
+                    ));
                 }
             }
         }
 
-        meshes.push(chunk.mesh(renderer));
-
         Box::new(Self {
             meshes,
+            unlit_meshes,
 
             camera,
 
             bound: true,
 
             material,
+            unlit_material,
         })
     }
 }
@@ -155,14 +199,21 @@ impl Scene for TestScene {
     fn render(&mut self, frame: &mut Frame) {
         // Update Uniforms
         self.material.update_uniforms(frame.renderer);
+        self.unlit_material.update_uniforms(frame.renderer);
 
         // Create Pass
         let mut pass = frame.pass(Color::BLACK);
         // Apply Materials To Pass
         self.material.apply(&mut pass);
 
-        // Render Meshes.
         for mesh in &self.meshes {
+            pass.render_mesh(mesh);
+        }
+
+        // Apply Unlit Material To Pass
+        self.unlit_material.apply(&mut pass);
+
+        for mesh in &self.unlit_meshes {
             pass.render_mesh(mesh);
         }
     }
