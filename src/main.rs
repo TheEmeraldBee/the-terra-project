@@ -11,11 +11,14 @@ use glam::Vec3;
 use noise::{NoiseFn, Perlin};
 use render::{
     camera::Camera,
+    dir_light::DirectionalLight,
     frame::Frame,
-    material::{DefaultMaterial, Light, Material, UnlitMaterial},
+    light::Light,
+    material::{DefaultMaterial, Material, UnlitMaterial},
     mesh::{builder::MeshBuilder, render::RenderMesh, Mesh},
     renderer::Renderer,
     texture::Texture,
+    util::color,
 };
 use wgpu::{include_wgsl, Color};
 use winit::keyboard::KeyCode;
@@ -67,11 +70,11 @@ impl TestScene {
             &renderer
                 .device
                 .create_shader_module(include_wgsl!("../assets/shaders/basic.wgsl")),
-            [
-                Light::new(Vec3::new(0.0, 0.0, 0.0), Color::RED),
-                Light::new(Vec3::new(0.0, 50.0, 0.0), Color::GREEN),
-                Light::new(Vec3::new(50.0, 0.0, 50.0), Color::BLUE),
-            ],
+            DirectionalLight::new(Vec3::new(0.0, 1.0, 0.7), color(1.0, 1.0, 0.984)),
+            &[Light::new(
+                Vec3::new(0.0, CHUNK_SIZE as f32, 0.0),
+                color(1.0, 0.576, 0.184),
+            )],
             Texture::from_bytes(renderer, include_bytes!("../assets/textures/grid.png")).unwrap(),
         );
         let unlit_material = UnlitMaterial::new(
@@ -81,17 +84,9 @@ impl TestScene {
                 .create_shader_module(include_wgsl!("../assets/shaders/unlit.wgsl")),
         );
 
-        unlit_meshes.extend([
-            MeshBuilder::default()
-                .with_added([0.0, 0.0, 0.0], 0..6)
-                .build(renderer),
-            MeshBuilder::default()
-                .with_added([0.0, 50.0, 0.0], 0..6)
-                .build(renderer),
-            MeshBuilder::default()
-                .with_added([50.0, 0.0, 50.0], 0..6)
-                .build(renderer),
-        ]);
+        unlit_meshes.extend([MeshBuilder::default()
+            .with_added([0.0, 0.0, 0.0], 0..6)
+            .build(renderer)]);
 
         let perlin = Perlin::new(0);
 

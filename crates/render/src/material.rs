@@ -1,9 +1,15 @@
 use std::any::Any;
 
-use glam::Vec3;
-use wgpu::{Color, RenderPass, RenderPipeline, ShaderModule, ShaderStages};
+use wgpu::{RenderPass, RenderPipeline, ShaderModule, ShaderStages};
 
-use crate::{renderer::Renderer, shader_tex::ShaderTexture, texture::Texture, uniform::Uniform};
+use crate::{
+    dir_light::DirectionalLight,
+    light::{Light, Lights},
+    renderer::Renderer,
+    shader_tex::ShaderTexture,
+    texture::Texture,
+    uniform::Uniform,
+};
 
 pub trait Material: Any {
     fn update_uniforms(&mut self, renderer: &Renderer);
@@ -17,32 +23,10 @@ pub struct VertexInput {
     view_proj: [[f32; 4]; 4],
 }
 
-#[repr(C)]
-#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Light {
-    pub position: [f32; 3],
-    // Padding to align to 4 bytes
-    _p: u32,
-    pub color: [f32; 3],
-    // Padding to align to 4 bytes
-    _p2: u32,
-}
-
-impl Light {
-    pub fn new(pos: Vec3, color: Color) -> Self {
-        Self {
-            position: pos.to_array(),
-            _p: 0,
-            color: [color.r as f32, color.g as f32, color.b as f32],
-            _p2: 0,
-        }
-    }
-}
-
 pub struct DefaultMaterial {
     vertex_uniform: Uniform<VertexInput>,
-    light_count_uniform: Uniform<i32>,
-    lighting_uniform: Uniform<[Light; 3]>,
+    dir_light: Uniform<DirectionalLight>,
+    lights: Lights,
     tex: ShaderTexture,
 
     pipeline: RenderPipeline,
@@ -52,7 +36,8 @@ impl DefaultMaterial {
     pub fn new(
         renderer: &Renderer,
         shader_module: &ShaderModule,
-        lights: [Light; 3],
+        dir_light: DirectionalLight,
+        lights: &[Light],
         tex: Texture,
     ) -> Self {
         let (vertex_uniform, bind_group_layout) = Uniform::new(
@@ -63,34 +48,24 @@ impl DefaultMaterial {
         );
         let (tex, tex_layout) = ShaderTexture::new(renderer, tex, 0);
 
-        let (light_count_uniform, light_count_bind_group_layout) =
-            Uniform::new(3, renderer, 0, ShaderStages::FRAGMENT);
-        let (lighting_uniform, light_bind_group_layout) =
-            Uniform::new(lights, renderer, 0, ShaderStages::FRAGMENT);
+        let (dir_light, dir_light_layout) =
+            Uniform::new(dir_light, renderer, 0, ShaderStages::FRAGMENT);
+
+        let (lights, layout) = Lights::new(lights, renderer).expect("Light count should be valid");
 
         let pipeline = renderer.pipeline(
-            &[
-                &bind_group_layout,
-                &tex_layout,
-                &light_count_bind_group_layout,
-                &light_bind_group_layout,
-            ],
+            &[&bind_group_layout, &tex_layout, &dir_light_layout, &layout],
             shader_module,
         );
 
         Self {
             vertex_uniform,
-            lighting_uniform,
-            light_count_uniform,
+            dir_light,
+            lights,
             tex,
             pipeline,
         }
     }
-
-    // pub fn change_light(&mut self, renderer: &Renderer, light: Light) {
-    //     self.lighting_uniform.data = light;
-    //     self.lighting_uniform.update(renderer);
-    // }
 }
 
 impl Material for DefaultMaterial {
@@ -112,10 +87,9 @@ impl Material for DefaultMaterial {
         // Apply the texture
         self.tex.apply(render_pass, 1);
 
-        self.light_count_uniform.apply(render_pass, 2);
+        self.dir_light.apply(render_pass, 2);
 
-        // Apply the light
-        self.lighting_uniform.apply(render_pass, 3);
+        self.lights.apply(render_pass, 3);
     }
 }
 
